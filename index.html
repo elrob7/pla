@@ -1,0 +1,595 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Detector Avanzado de IA - Web</title>
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; margin: 18px; background:#f7f8fb; color:#111; }
+    .container { max-width: 980px; margin: auto; background: white; padding: 18px; border-radius:8px; box-shadow: 0 6px 20px rgba(0,0,0,0.06); }
+    h1 { margin:0 0 8px 0; font-size: 20px; }
+    p.lead { margin-top:0;color:#444;font-size:14px }
+    .row { display:flex; gap:12px; flex-wrap:wrap; }
+    .col { flex:1; min-width:260px; }
+    textarea { width:100%; height:220px; padding:8px; font-size:14px; border-radius:6px; border:1px solid #ddd; resize:vertical; }
+    button { padding:8px 12px; border-radius:6px; border:0; background:#0366d6; color:white; cursor:pointer; }
+    button.secondary { background:#6c757d; }
+    .small { font-size:13px; color:#555; }
+    .results { margin-top:12px; padding:12px; border-radius:6px; background:#fbfdff; border:1px solid #e6eefc; }
+    .label { font-weight:600; margin-right:8px; }
+    .sections { margin-top:10px; max-height:240px; overflow:auto; border-radius:6px; border:1px solid #eee; padding:8px; background:#fff; }
+    .section { padding:8px; border-bottom:1px dashed #eee; }
+    .status-red { color:#b22222; font-weight:700 }
+    .status-green { color:#0a7a2f; font-weight:700 }
+    .progress { height:6px; background:#eee; border-radius:6px; overflow:hidden; margin-top:8px; }
+    .progress > i { display:block; height:100%; width:0%; background:#0366d6; transition:width 300ms ease; }
+    input[type="file"] { display:inline-block; }
+    footer { margin-top:18px; font-size:13px; color:#666; }
+    pre.smallbox { white-space:pre-wrap; word-wrap:break-word; background:#f3f6fb; padding:8px; border-radius:6px; border:1px solid #e6eefc; }
+  </style>
+  <!-- PDF.js CDN (usa la versión estable de cdnjs) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  
+
+  <!-- Mammoth.js para docx -->
+   <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.11.0/mammoth.browser.min.js"></script>
+
+
+  <!-- Mammoth.js (cdn.jsdelivr) -->
+
+</head>
+<body>
+  <div class="container">
+    <h1>Detector Avanzado de Contenido Generado por IA</h1>
+    <p class="lead">Pega texto, sube PDF o DOCX y pulsa <strong>Analizar</strong></p>
+
+    <div class="row" style="margin-bottom:10px;">
+      <div class="col">
+        <label class="small label">Cargar archivo (PDF / DOCX)</label><br>
+        <input id="fileInput" type="file" accept=".pdf,.docx" />
+        <div style="margin-top:8px;">
+          <button id="btnLoad" class="secondary">Cargar seleccionado</button>
+          <button id="btnPaste" class="secondary">Pegar portapapeles</button>
+          <button id="btnClear" class="secondary">Limpiar</button>
+        </div>
+      </div>
+
+      <div class="col">
+        <label class="small label">Herramientas</label><br>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button id="btnAnalyze">Analizar</button>
+          <button id="btnDownload">Descargar informe (JSON)</button>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <label class="small label">Texto a analizar</label>
+      <textarea id="textInput" placeholder="Pega aquí el texto o carga un PDF/DOCX..."></textarea>
+    </div>
+
+    <div class="results">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <div id="mainResult" style="font-size:15px; font-weight:700">Probabilidad de IA: --%</div>
+          <div style="margin-top:6px;">
+            <span id="confidenceLabel" class="small">Confianza: --</span>
+            &nbsp;•&nbsp;
+            <span id="wordsLabel" class="small">Palabras: 0</span>
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <div class="small">Indicadores principales:</div>
+          <div id="indicatorSummary" class="small" style="margin-top:6px;">—</div>
+        </div>
+      </div>
+
+      <div class="progress" aria-hidden="true"><i id="progressBar"></i></div>
+
+      <div style="margin-top:12px;">
+        <label class="small label">Análisis por secciones</label>
+        <div class="sections" id="sectionsBox"></div>
+      </div>
+
+      <div style="margin-top:10px;">
+        <label class="small label">Detalles métricos</label>
+        <pre id="metricsBox" class="smallbox"></pre>
+      </div>
+    </div>
+
+    <footer>
+      <div> Analizador de IA</div>
+    </footer>
+  </div>
+
+<script>
+/* ---------- Patrones cargados ---------- */
+const AI_INDICATORS = {
+  phrases: [
+    'en conclusión','es importante destacar','cabe mencionar','por lo tanto','en consecuencia',
+    'de esta manera','desde una perspectiva','en términos generales','se puede observar',
+    'resulta evidente','es fundamental','permite mejorar','contribuye a','tiene un impacto',
+    'representa un','es crucial','es esencial','vale la pena mencionar','conviene resaltar',
+    'no obstante','asimismo','por otra parte','en definitiva','en resumen','en síntesis',
+    'es necesario','es preciso','resulta necesario','garantizar la','asegurar la','velar por la',
+    'como resultado','de acuerdo con','considerando que','en efecto','por consiguiente'
+  ],
+  structures: [
+    'como inteligencia artificial','como modelo de lenguaje','no puedo tener','no soy capaz de','no tengo',
+    'es importante señalar','cabe destacar que','en términos de','se observa que','se evidencia que'
+  ],
+  words: [
+    'óptimo','eficiente','eficaz','significativo','sustancial','contemporáneo','metodología',
+    'implementación','optimización','sistemático','estratégico','paradigma','sinérgico','robusto',
+    'analítico','predictivo','estructurado','consistente','objetivo','automatización','inteligente'
+  ]
+};
+
+const HUMAN_INDICATORS = {
+  phrases: [
+    'creo que','pienso que','en mi opinión','para mí','la verdad','sinceramente','honestamente','personalmente',
+    'o sea','es que','bueno','pues','oye','mira','fíjate','vamos','hombre','tío','chaval','ni idea','no sé',
+    'qué sé yo','para nada','me gusta','me encanta','odio','detesto','me da rabia','me da pena','me alegra','me preocupa',
+    'a ver','digamos','entonces','total','la cosa es','ya sabes','te juro','la verdad es que','francamente'
+  ],
+  contractions: ["pa'","pa ","'ta","'onde","'acer","'tá","'toy"],
+  fillers: ['eh','este','pues','bueno','entonces','o sea','vamos','mmm','ah','ahí','vale'],
+  emotional: ['jaja','jeje','jajaja','lol','uff','ay','uy','epa','haha','wow','oh','ehhh','oops']
+};
+
+
+
+
+/* ---------- Utilidades ---------- */
+function tokenizeWords(text) {
+  return (text.toLowerCase().match(/\b\w+\b/g) || []);
+}
+function splitSentences(text) {
+  return (text.replace(/\n/g,' ').split(/[.!?]+/).map(s=>s.trim()).filter(s=>s.length>5));
+}
+function mean(arr){ return arr.length? arr.reduce((a,b)=>a+b,0)/arr.length:0; }
+function std(arr){ if(!arr.length) return 0; const m = mean(arr); return Math.sqrt(arr.reduce((s,x)=>s+(x-m)*(x-m),0)/arr.length); }
+
+/* ---------- Métricas y análisis (adaptadas a JS) ---------- */
+function calculateTextMetrics(text) {
+  const clean = text.replace(/\s+/g,' ').trim();
+  const sentences = splitSentences(clean);
+  if(sentences.length < 3) return null;
+  const words = tokenizeWords(clean);
+  if(words.length < 20) return null;
+
+  const total_words = words.length;
+  const total_sentences = sentences.length;
+  const unique_words = new Set(words).size;
+
+  // Perplejidad léxica (entropía)
+  const freq = {};
+  words.forEach(w => freq[w] = (freq[w] || 0) + 1);
+  let perplexity = 0;
+  for(const count of Object.values(freq)) {
+    const p = count / total_words;
+    if(p>0) perplexity -= p * Math.log(p);
+  }
+
+  // Burstiness
+  const sentence_lengths = sentences.map(s => (s.match(/\b\w+\b/g)||[]).length);
+  const burstiness = mean(sentence_lengths) > 0 ? std(sentence_lengths)/mean(sentence_lengths) : 0;
+
+  // Diversidad léxica
+  const lexical_diversity = total_words>0? unique_words/total_words : 0;
+
+  // Longitud promedio oraciones
+  const avg_sentence_length = mean(sentence_lengths);
+
+  // Repetición (bigrams)
+  let repetition_score = 0;
+  if(words.length > 1) {
+    const bigrams = [];
+    for(let i=0;i<words.length-1;i++) bigrams.push(words[i] + '|' + words[i+1]);
+    const unique_bigrams = new Set(bigrams).size;
+    repetition_score = 1 - (unique_bigrams / bigrams.length);
+  }
+
+  return {
+    perplexity, burstiness, lexical_diversity, avg_sentence_length, repetition_score,
+    total_words, total_sentences
+  };
+}
+
+function patternAnalysis(text) {
+  const t = text.toLowerCase();
+  let ai_score = 0, human_score = 0;
+
+  AI_INDICATORS.phrases.forEach(p => { const m = (t.match(new RegExp(escapeRegExp(p), 'g'))||[]).length; ai_score += m * 8; });
+  AI_INDICATORS.structures.forEach(p => { const m = (t.match(new RegExp(escapeRegExp(p), 'g'))||[]).length; ai_score += m * 10; });
+  AI_INDICATORS.words.forEach(w => { const m = (t.match(new RegExp('\\b'+escapeRegExp(w)+'\\b','g'))||[]).length; ai_score += m * 5; });
+
+  HUMAN_INDICATORS.phrases.forEach(p => { const m = (t.match(new RegExp(escapeRegExp(p),'g'))||[]).length; human_score += m * 8; });
+  HUMAN_INDICATORS.contractions.forEach(c => { const m = (t.match(new RegExp(escapeRegExp(c),'g'))||[]).length; human_score += m * 12; });
+  HUMAN_INDICATORS.emotional.forEach(e => { const m = (t.match(new RegExp(escapeRegExp(e),'g'))||[]).length; human_score += m * 10; });
+  HUMAN_INDICATORS.fillers.forEach(f => { const m = (t.match(new RegExp('\\b'+escapeRegExp(f)+'\\b','g'))||[]).length; human_score += m * 6; });
+
+  const exclamation_count = (text.match(/!/g)||[]).length;
+  const question_count = (text.match(/\?/g)||[]).length;
+  const ellipsis_count = (text.match(/\.{3,}/g)||[]).length;
+  const total_chars = text.length;
+  if(total_chars>0){
+    if(exclamation_count/total_chars > 0.002) human_score += 25;
+    if(question_count/total_chars > 0.002) human_score += 20;
+    if(ellipsis_count/total_chars > 0.001) human_score += 15;
+  }
+
+  return { ai_score, human_score };
+}
+
+function analyzeStyleCharacteristics(text) {
+  const sentences = splitSentences(text);
+  if(sentences.length < 2) return { ai_style_score:0, human_style_score:100 };
+
+  const sentence_lengths = sentences.map(s => s.split(/\s+/).length);
+  const length_uniformity = mean(sentence_lengths) > 0 ? 1 - (std(sentence_lengths)/mean(sentence_lengths)) : 0;
+
+// Lista ampliada de conectores complejos típicos de textos formales / IA
+const CONNECTORS = [
+  'sin embargo', 'no obstante', 'por consiguiente', 'además', 'asimismo', 
+  'por tanto', 'en consecuencia', 'de este modo', 'de esta forma', 
+  'en efecto', 'por ende', 'por otra parte', 'en suma', 'en síntesis', 
+  'en definitiva', 'a pesar de ello', 'consecuentemente'
+];
+
+// Construir regex dinámico
+const connectorRegex = new RegExp(`\\b(${CONNECTORS.join('|')})\\b`, 'gi');
+
+// Contar apariciones en el texto
+const complex_connectors = (text.match(connectorRegex) || []).length;
+
+  const paragraphs = text.split('\n').map(p=>p.trim()).filter(p=>p.length>10);
+  let paragraph_uniformity = 0;
+  if(paragraphs.length>1){
+    const para_lengths = paragraphs.map(p=>p.split(/\s+/).length);
+    paragraph_uniformity = mean(para_lengths)>0 ? 1 - (std(para_lengths)/mean(para_lengths)) : 0;
+  }
+
+  const ai_style_score = (length_uniformity * 50) + (complex_connectors * 4) + (paragraph_uniformity * 30);
+  const human_style_score = Math.max(0, 100 - ai_style_score);
+  return { ai_style_score, human_style_score };
+}
+
+// MODIFICAR ESTA FUNCIÓN PRINCIPAL:
+function detectAIProbability(text) {
+  if(text.trim().length < 50) return 50.0;
+  const metrics = calculateTextMetrics(text);
+  if(!metrics) return 50.0;
+
+  const {ai_score: ai_pattern_score, human_score: human_pattern_score} = patternAnalysis(text);
+  const {ai_style_score, human_style_score} = analyzeStyleCharacteristics(text);
+
+  let ai_metric_score = 0, human_metric_score = 0;
+  
+  // AJUSTAR UMBRALES MÁS FLEXIBLES:
+  // Perplejidad
+  if(metrics.perplexity < 2.0) ai_metric_score += 30;  // Era 1.7
+  else if(metrics.perplexity > 3.5) human_metric_score += 30; // Era 3.0
+  
+  // Burstiness  
+  if(metrics.burstiness < 0.3) ai_metric_score += 25;  // Era 0.2
+  else if(metrics.burstiness > 0.6) human_metric_score += 25; // Era 0.5
+  
+  // Diversidad léxica
+  if(metrics.lexical_diversity < 0.4) ai_metric_score += 20;  // Era 0.3
+  else if(metrics.lexical_diversity > 0.65) human_metric_score += 20; // Era 0.55
+  
+  // Longitud oración
+  if(metrics.avg_sentence_length > 18) ai_metric_score += 20;  // Era 22
+  else if(metrics.avg_sentence_length < 10) human_metric_score += 20; // Era 7
+
+  // REPARTIR MÁS EQUITATIVAMENTE:
+  const total_ai_score = (ai_pattern_score * 0.5 + ai_style_score * 0.25 + ai_metric_score * 0.25);
+  const total_human_score = (human_pattern_score * 0.5 + human_style_score * 0.25 + human_metric_score * 0.25);
+  
+  if(total_ai_score + total_human_score === 0) return 50.0;
+  let ai_probability = (total_ai_score / (total_ai_score + total_human_score)) * 100;
+
+  // SUAVIZAR FACTORES DE AJUSTE:
+  if(ai_pattern_score > human_pattern_score * 1.2)  // Era 1.5
+    ai_probability = Math.min(100, ai_probability * 1.2);  // Era 1.4
+  else if(human_pattern_score > ai_pattern_score * 1.8)  // Era 2.0
+    ai_probability = Math.max(0, ai_probability * 0.7);  // Era 0.6
+
+  // APLICAR CORRECCIÓN PARA TEXTOS HÍBRIDOS:
+  // Si hay señales mixtas, acercar a 50%
+  const mixed_signals = (ai_pattern_score > 0 && human_pattern_score > 0);
+  if(mixed_signals && Math.abs(ai_probability - 50) > 25) {
+    ai_probability = 50 + (ai_probability - 50) * 0.6;
+  }
+
+  return Math.min(100, Math.max(0, ai_probability));
+}
+
+// AGREGAR ESTA FUNCIÓN PARA MEJORAR DETECCIÓN HÍBRIDA:
+function detectHybridContent(text) {
+  const aiProb = detectAIProbability(text);
+  const sections = analyzeSections(text);
+  
+  // Calcular variabilidad entre secciones
+  const sectionProbs = sections.map(s => s.ai_probability);
+  const variability = std(sectionProbs);
+  
+  // Alta variabilidad sugiere contenido mixto
+  if(variability > 15 && aiProb > 40 && aiProb < 70) {
+    return {
+      probability: aiProb,
+      type: "HÍBRIDO",
+      confidence: "MEDIA",
+      mix_ratio: `${Math.round(aiProb)}% IA / ${Math.round(100-aiProb)}% humano`,
+      note: "Contenido con características mixtas detectadas"
+    };
+  }
+  
+  return {
+    probability: aiProb,
+    type: aiProb > 60 ? "IA" : aiProb < 40 ? "HUMANO" : "INDETERMINADO",
+    confidence: Math.abs(aiProb - 50) > 30 ? "ALTA" : Math.abs(aiProb - 50) > 15 ? "MEDIA" : "BAJA"
+  };
+}
+
+function analyzeSections(text, chunkSizeWords = 200) {
+  const words = text.split(/\s+/).filter(w=>w.length);
+  const chunks = [];
+  for(let i=0;i<words.length;i+=chunkSizeWords){
+    const chunk = words.slice(i, i+chunkSizeWords).join(' ');
+    if(chunk.trim().length < 30) continue;
+    const prob = detectAIProbability(chunk);
+    chunks.push({ text: chunk, ai_probability: prob, start_word: i, end_word: Math.min(i+chunkSizeWords, words.length) });
+  }
+  return chunks;
+}
+
+/* ---------- UI & eventos ---------- */
+const textInput = document.getElementById('textInput');
+const btnAnalyze = document.getElementById('btnAnalyze');
+const btnLoad = document.getElementById('btnLoad');
+const btnPaste = document.getElementById('btnPaste');
+const btnClear = document.getElementById('btnClear');
+const fileInput = document.getElementById('fileInput');
+const mainResult = document.getElementById('mainResult');
+const confidenceLabel = document.getElementById('confidenceLabel');
+const wordsLabel = document.getElementById('wordsLabel');
+const indicatorSummary = document.getElementById('indicatorSummary');
+const sectionsBox = document.getElementById('sectionsBox');
+const metricsBox = document.getElementById('metricsBox');
+const progressBar = document.getElementById('progressBar');
+const btnDownload = document.getElementById('btnDownload');
+
+let lastReport = null;
+
+btnClear.addEventListener('click', ()=> {
+  textInput.value = '';
+  clearResults();
+});
+
+btnPaste.addEventListener('click', async ()=> {
+  try {
+    const clip = await navigator.clipboard.readText();
+    textInput.value = clip;
+    alert('Texto pegado desde el portapapeles');
+  } catch(e) {
+    alert('No se pudo acceder al portapapeles: ' + e.message);
+  }
+});
+
+btnLoad.addEventListener('click', ()=> {
+  const f = fileInput.files[0];
+  if(!f){ alert('Selecciona un archivo PDF o DOCX primero'); return; }
+  const name = f.name.toLowerCase();
+  if(name.endsWith('.pdf')) loadPdfFile(f);
+  else if(name.endsWith('.docx')) loadDocxFile(f);
+  else alert('Tipo de archivo no soportado. Usa PDF o DOCX.');
+});
+
+btnAnalyze.addEventListener('click', ()=> {
+  const text = textInput.value || '';
+  if(!text || text.trim().length < 50) { alert('El texto es demasiado corto para analizar (mínimo 50 caracteres).'); return; }
+  runAnalysis(text);
+});
+
+btnDownload.addEventListener('click', ()=> {
+  if(!lastReport){ alert('No hay informe para descargar. Ejecuta un análisis primero.'); return; }
+  const blob = new Blob([JSON.stringify(lastReport, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='ai_report.json'; a.click();
+  URL.revokeObjectURL(url);
+});
+
+/* ---------- extracción de archivos ---------- */
+async function loadPdfFile(file) {
+  showProgress(true);
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const loadingTask = pdfjsLib.getDocument({data: arrayBuffer});
+    const pdf = await loadingTask.promise;
+    let text = '';
+    for(let i=1;i<=pdf.numPages;i++){
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      const strings = content.items.map(item => item.str);
+      text += strings.join(' ') + '\n\n';
+    }
+    textInput.value = text;
+    alert('PDF cargado. Ya puedes analizarlo.');
+  } catch(e) {
+    alert('Error al leer PDF: ' + e.message);
+  } finally {
+    showProgress(false);
+  }
+}
+
+async function loadDocxFile(file) {
+  showProgress(true);
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const result = await mammoth.extractRawText({arrayBuffer});
+    textInput.value = result.value;
+    alert('DOCX cargado. Ya puedes analizarlo.');
+  } catch(e) {
+    alert('Error al leer DOCX: ' + e.message);
+  } finally {
+    showProgress(false);
+  }
+}
+
+/* ---------- lógica para mostrar resultados ---------- */
+function runAnalysis(text) {
+  showProgress(true);
+  setTimeout(() => { // permitir que la barra se muestre
+    try {
+      const aiProb = detectAIProbability(text);
+      const sections = analyzeSections(text);
+      const metrics = calculateTextMetrics(text) || {};
+      
+      // MEJOR DETECCIÓN DE CONTENIDO HÍBRIDO
+      const is_hybrid = aiProb >= 40 && aiProb <= 60;
+      const has_ai = aiProb > 60;
+      const is_human = aiProb < 40;
+      
+      // CONFIANZA MÁS PRECISA
+      const confidence = Math.abs(aiProb - 50) > 30 ? 'ALTA' : 
+                        Math.abs(aiProb - 50) > 15 ? 'MEDIA' : 'BAJA';
+
+      // MEJORAR ETIQUETADO DE RESULTADO
+      let resultLabel = '';
+      let resultClass = '';
+      
+      if (is_hybrid) {
+        resultLabel = ` (CONTENIDO HÍBRIDO ~${Math.round(aiProb)}% IA)`; // Redondeado para mejor lectura
+        resultClass = 'status-orange';
+      } else if (has_ai) {
+        resultLabel = ' (CONTENIDO IA)';
+        resultClass = 'status-red';
+      } else {
+        resultLabel = ' (CONTENIDO HUMANO)';
+        resultClass = 'status-green';
+      }
+
+      // AGREGAR ESTILO NARANJA PARA HÍBRIDOS (si no existe)
+      if (!document.querySelector('style[data-hybrid-style]')) {
+        const style = document.createElement('style');
+        style.setAttribute('data-hybrid-style', 'true');
+        style.textContent = '.status-orange { color: #d35400; font-weight:700 }';
+        document.head.appendChild(style);
+      }
+
+      // ACTUALIZAR UI
+      mainResult.textContent = `Probabilidad de IA: ${aiProb.toFixed(1)}%${resultLabel}`;
+      mainResult.className = resultClass;
+      confidenceLabel.textContent = `Confianza: ${confidence}`;
+      wordsLabel.textContent = `Palabras: ${metrics.total_words || text.split(/\s+/).filter(w => w).length}`;
+      indicatorSummary.textContent = summarizeIndicators(text);
+
+      // MEJORAR VISUALIZACIÓN DE SECCIONES
+      sectionsBox.innerHTML = '';
+      if (sections.length === 0) {
+        sectionsBox.innerHTML = '<div class="small">No hay secciones suficientes para mostrar.</div>';
+      } else {
+        sections.forEach((sec, idx) => {
+          const div = document.createElement('div');
+          div.className = 'section';
+          
+          // MEJORES ETIQUETAS PARA SECCIONES
+          let flag, color;
+          if (sec.ai_probability > 65) {
+            flag = '🔴 PREDOMINIO IA';
+            color = '#c0392b';
+          } else if (sec.ai_probability > 55) {
+            flag = '🟠 MAYORÍA IA';
+            color = '#e67e22';
+          } else if (sec.ai_probability > 45) {
+            flag = '🟡 EQUILIBRADO';
+            color = '#f39c12';
+          } else if (sec.ai_probability > 35) {
+            flag = '🟢 MAYORÍA HUMANA';
+            color = '#27ae60';
+          } else {
+            flag = '🔵 PREDOMINIO HUMANO';
+            color = '#2980b9';
+          }
+          
+          div.innerHTML = `
+            <div style="font-weight:700; color:${color}">
+              Sección ${idx + 1} — ${flag} — ${sec.ai_probability.toFixed(1)}%
+            </div>
+            <div style="margin-top:6px; font-size:13px; color:#333">
+              ${escapeHtml(sec.text.slice(0, 350))}${sec.text.length > 350 ? '...' : ''}
+            </div>
+          `;
+          sectionsBox.appendChild(div);
+        });
+      }
+
+      // MEJORAR MÉTRICAS VISIBLES
+      const displayMetrics = {
+        palabras_totales: metrics.total_words || 0,
+        oraciones_totales: metrics.total_sentences || 0,
+        perplejidad_lexica: metrics.perplexity ? metrics.perplexity.toFixed(3) : 'N/A',
+        burstiness: metrics.burstiness ? metrics.burstiness.toFixed(3) : 'N/A',
+        diversidad_lexica: metrics.lexical_diversity ? (metrics.lexical_diversity * 100).toFixed(1) + '%' : 'N/A',
+        longitud_promedio_oracion: metrics.avg_sentence_length ? metrics.avg_sentence_length.toFixed(1) : 'N/A'
+      };
+
+      metricsBox.textContent = JSON.stringify(displayMetrics, null, 2);
+
+      // MEJORAR REPORTE CON INFORMACIÓN HÍBRIDA
+      lastReport = {
+        analyzed_at: new Date().toISOString(),
+        ai_probability: aiProb,
+        content_type: is_hybrid ? 'HÍBRIDO' : has_ai ? 'IA' : 'HUMANO',
+        hybrid_ratio: is_hybrid ? `${Math.round(aiProb)}% IA / ${Math.round(100 - aiProb)}% humano` : null,
+        confidence,
+        metrics: displayMetrics,
+        sections,
+        word_count: metrics.total_words || text.split(/\s+/).filter(w => w).length
+      };
+      
+    } catch (e) {
+      alert('Error en el análisis: ' + e.message);
+      console.error('Error en runAnalysis:', e);
+    } finally {
+      showProgress(false);
+    }
+  }, 80);
+}
+
+function summarizeIndicators(text) {
+  const t = text.toLowerCase();
+  let foundAI = [], foundHuman = [];
+  AI_INDICATORS.phrases.forEach(p => { if(t.includes(p)) foundAI.push(p); });
+  HUMAN_INDICATORS.phrases.forEach(p => { if(t.includes(p)) foundHuman.push(p); });
+  const ai = foundAI.slice(0,6).join(', ') || '—';
+  const hu = foundHuman.slice(0,6).join(', ') || '—';
+  return `Frases IA: ${ai} • Frases humanas: ${hu}`;
+}
+
+function clearResults(){
+  mainResult.textContent = 'Probabilidad de IA: --%';
+  mainResult.className = '';
+  confidenceLabel.textContent = 'Confianza: --';
+  wordsLabel.textContent = 'Palabras: 0';
+  indicatorSummary.textContent = '—';
+  sectionsBox.innerHTML = '';
+  metricsBox.textContent = '';
+  lastReport = null;
+}
+
+/* ---------- utilitarios ---------- */
+function showProgress(on) {
+  if(on) { progressBar.style.width = '0%'; setTimeout(()=>progressBar.style.width='70%', 60); }
+  else { progressBar.style.width='100%'; setTimeout(()=>progressBar.style.width='0%', 420); }
+}
+function escapeRegExp(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+function escapeHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+/* Initialize small */
+clearResults();
+</script>
+</body>
+</html>
