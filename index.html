@@ -4,65 +4,57 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Detector Avanzado de IA - Web</title>
-  <style>
-    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; margin: 18px; background:#f7f8fb; color:#111; }
-    .container { max-width: 980px; margin: auto; background: white; padding: 18px; border-radius:8px; box-shadow: 0 6px 20px rgba(0,0,0,0.06); }
-    h1 { margin:0 0 8px 0; font-size: 20px; }
-    p.lead { margin-top:0;color:#444;font-size:14px }
-    .row { display:flex; gap:12px; flex-wrap:wrap; }
-    .col { flex:1; min-width:260px; }
-    textarea { width:100%; height:220px; padding:8px; font-size:14px; border-radius:6px; border:1px solid #ddd; resize:vertical; }
-    button { padding:8px 12px; border-radius:6px; border:0; background:#0366d6; color:white; cursor:pointer; }
-    button.secondary { background:#6c757d; }
-    .small { font-size:13px; color:#555; }
-    .results { margin-top:12px; padding:12px; border-radius:6px; background:#fbfdff; border:1px solid #e6eefc; }
-    .label { font-weight:600; margin-right:8px; }
-    .sections { margin-top:10px; max-height:240px; overflow:auto; border-radius:6px; border:1px solid #eee; padding:8px; background:#fff; }
-    .section { padding:8px; border-bottom:1px dashed #eee; }
-    .status-red { color:#b22222; font-weight:700 }
-    .status-green { color:#0a7a2f; font-weight:700 }
-    .progress { height:6px; background:#eee; border-radius:6px; overflow:hidden; margin-top:8px; }
-    .progress > i { display:block; height:100%; width:0%; background:#0366d6; transition:width 300ms ease; }
-    input[type="file"] { display:inline-block; }
-    footer { margin-top:18px; font-size:13px; color:#666; }
-    pre.smallbox { white-space:pre-wrap; word-wrap:break-word; background:#f3f6fb; padding:8px; border-radius:6px; border:1px solid #e6eefc; }
-  </style>
+  <link rel="stylesheet" href="estilo.css">
   <!-- PDF.js CDN (usa la versión estable de cdnjs) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
-  
-
   <!-- Mammoth.js para docx -->
    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.11.0/mammoth.browser.min.js"></script>
 
 
   <!-- Mammoth.js (cdn.jsdelivr) -->
-
+   
 </head>
 <body>
+  
   <div class="container">
-    <h1>Detector Avanzado de Contenido Generado por IA</h1>
-    <p class="lead">Pega texto, sube PDF o DOCX y pulsa <strong>Analizar</strong></p>
+    
 
+  <!-- Pequeña fila de características (opcional) -->
+  <div class="deia-features" aria-hidden="false">
+    
+  
+  </div>
+    <div class="header-title">
+    <img src="dai.svg" alt="dai" width="100px">
+    <h1>Detector Avanzado de Inteligencia Artificial</h1>
+</div>
+
+    
+<div class="deia-titles">
+      <p class="lead">
+        Detecta el porcentaje de contenido generado por IA en documentos <strong>PDF</strong>, <strong>DOCX</strong> y texto pegado desde el portapapeles.
+      </p>
+      <div class="feat">
+     
+      <p class="lead">Pega texto, sube PDF o DOCX y pulsa <strong>Analizar</strong></p>
+    </div>
+    
+    </div>
+    
     <div class="row" style="margin-bottom:10px;">
       <div class="col">
-        <label class="small label">Cargar archivo (PDF / DOCX)</label><br>
+        <label class="lead">Cargar archivo</label><br>
         <input id="fileInput" type="file" accept=".pdf,.docx" />
+        
         <div style="margin-top:8px;">
           <button id="btnLoad" class="secondary">Cargar seleccionado</button>
           <button id="btnPaste" class="secondary">Pegar portapapeles</button>
           <button id="btnClear" class="secondary">Limpiar</button>
-        </div>
-      </div>
-
-      <div class="col">
-        <label class="small label">Herramientas</label><br>
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
           <button id="btnAnalyze">Analizar</button>
-          <button id="btnDownload">Descargar informe (JSON)</button>
+          
         </div>
-      </div>
+      </div>      
     </div>
-
     <div>
       <label class="small label">Texto a analizar</label>
       <textarea id="textInput" placeholder="Pega aquí el texto o carga un PDF/DOCX..."></textarea>
@@ -71,7 +63,7 @@
     <div class="results">
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <div>
-          <div id="mainResult" style="font-size:15px; font-weight:700">Probabilidad de IA: --%</div>
+          <div id="mainResult" style="font-size:20px; font-weight:700">Probabilidad de uso de IA: --%</div>
           <div style="margin-top:6px;">
             <span id="confidenceLabel" class="small">Confianza: --</span>
             &nbsp;•&nbsp;
@@ -97,9 +89,25 @@
       </div>
     </div>
 
-    <footer>
-      <div> Analizador de IA</div>
-    </footer>
+    <div class="reko-credit">
+    <a href="https://elrob7.github.io/reko/" target="_blank" class="reko-link">
+        <img src="logo2.svg" alt="Reko logo" class="reko-logo">
+    </a>
+
+    <div class="reko-name">
+        <a href="https://elrob7.github.io/reko/" target="_blank" class="reko-link">
+            reko
+        </a>
+    </div>
+
+    <div class="reko-desc">
+        Analizador avanzado de IA
+    </div>
+</div>
+
+
+</div>
+
   </div>
 
 <script>
@@ -480,7 +488,7 @@ function runAnalysis(text) {
       }
 
       // ACTUALIZAR UI
-      mainResult.textContent = `Probabilidad de IA: ${aiProb.toFixed(1)}%${resultLabel}`;
+      mainResult.textContent = `Probabilidad de uso de IA: ${aiProb.toFixed(1)}%${resultLabel}`;
       mainResult.className = resultClass;
       confidenceLabel.textContent = `Confianza: ${confidence}`;
       wordsLabel.textContent = `Palabras: ${metrics.total_words || text.split(/\s+/).filter(w => w).length}`;
@@ -570,7 +578,7 @@ function summarizeIndicators(text) {
 }
 
 function clearResults(){
-  mainResult.textContent = 'Probabilidad de IA: --%';
+  mainResult.textContent = 'Probabilidad de uso de IA: --%';
   mainResult.className = '';
   confidenceLabel.textContent = 'Confianza: --';
   wordsLabel.textContent = 'Palabras: 0';
@@ -591,5 +599,6 @@ function escapeHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 /* Initialize small */
 clearResults();
 </script>
+<script src="https://cdn.lordicon.com/lordicon.js"></script>
 </body>
 </html>
